@@ -1,0 +1,317 @@
+{
+  "schema_version": 3,
+  "description": "Material 3-inspired Hyprland desktop for Debian/Ubuntu/Mint. Default mode resolves each dependency as APT-first, then a source build when it is not in the repositories. Pass --via-nix to install everything through Nix instead.",
+  "policy": {
+    "default_backend": "apt-then-source",
+    "nix_backend": "opt-in (--via-nix, fully self-contained)",
+    "one_owner_per_binary": true,
+    "note": "Each package is owned by exactly one backend per run. There is no silent fallback between APT and source: if an APT package is absent it is built from source, and build failures are reported for the user to resolve."
+  },
+  "packages": [
+    {
+      "name": "quickshell",
+      "required": true,
+      "apt_name": null,
+      "source": {
+        "kind": "cmake",
+        "repo": "https://github.com/quickshell-mirror/quickshell.git",
+        "ref": "v0.2.1",
+        "bin": "quickshell",
+        "install_prefix": "/usr/local",
+        "apt_build_deps": [
+          "cmake",
+          "ninja-build",
+          "g++",
+          "pkg-config",
+          "qt6-base-dev",
+          "qt6-declarative-dev",
+          "qt6-wayland-dev",
+          "wayland-protocols",
+          "libpipewire-0.3-dev",
+          "libdbus-1-dev",
+          "libxkbcommon-dev"
+        ]
+      },
+      "nix_attr": "quickshell",
+      "reason": "Desktop shell. Not packaged in Debian/Ubuntu/Mint, so default mode builds it from source with the distro Qt; --via-nix uses the Nix build."
+    },
+    {
+      "name": "hyprland",
+      "required": true,
+      "apt_name": "hyprland",
+      "source": null,
+      "nix_attr": "hyprland",
+      "reason": "Compositor. Prefer the APT package (Ubuntu 24.04+/Mint 22 universe). Source build is intentionally not attempted here because it is a fragile multi-dependency build; use --via-nix when no APT package is available."
+    },
+    {
+      "name": "matugen",
+      "required": true,
+      "apt_name": null,
+      "source": {
+        "kind": "cargo",
+        "repo": "https://github.com/InioX/matugen.git",
+        "bin": "matugen",
+        "install_args": ["--root", "/usr/local"],
+        "apt_build_deps": [
+          "cargo",
+          "rustc"
+        ]
+      },
+      "nix_attr": "matugen",
+      "reason": "Wallpaper-driven Material 3 palette generation. Usually absent from APT repositories; built from source with Cargo."
+    },
+    {
+      "name": "kitty",
+      "required": true,
+      "apt_name": "kitty",
+      "source": null,
+      "nix_attr": "kitty",
+      "reason": "Terminal emulator."
+    },
+    {
+      "name": "fish",
+      "required": true,
+      "apt_name": "fish",
+      "source": null,
+      "nix_attr": "fish",
+      "reason": "Interactive shell."
+    },
+    {
+      "name": "nemo",
+      "required": true,
+      "apt_name": "nemo",
+      "source": null,
+      "nix_attr": "nemo",
+      "reason": "File manager; integrates well with Mint."
+    },
+    {
+      "name": "fuzzel",
+      "required": true,
+      "apt_name": "fuzzel",
+      "source": null,
+      "nix_attr": "fuzzel",
+      "reason": "Application launcher bound to SUPER+Space in shortcuts.lua."
+    },
+    {
+      "name": "libnotify",
+      "required": true,
+      "apt_name": "libnotify-bin",
+      "source": null,
+      "nix_attr": "libnotify",
+      "reason": "Provides notify-send used by hypr/scripts/gamemode.sh."
+    },
+    {
+      "name": "git",
+      "required": true,
+      "apt_name": "git",
+      "source": null,
+      "nix_attr": "git",
+      "reason": "Version control and source builds."
+    },
+    {
+      "name": "curl",
+      "required": true,
+      "apt_name": "curl",
+      "source": null,
+      "nix_attr": "curl",
+      "reason": "Download and diagnostics utility."
+    },
+    {
+      "name": "wget",
+      "required": true,
+      "apt_name": "wget",
+      "source": null,
+      "nix_attr": "wget",
+      "reason": "Download utility."
+    },
+    {
+      "name": "jq",
+      "required": true,
+      "apt_name": "jq",
+      "source": null,
+      "nix_attr": "jq",
+      "reason": "JSON utilities (used by the shell and scripts)."
+    },
+    {
+      "name": "wl-clipboard",
+      "required": true,
+      "apt_name": "wl-clipboard",
+      "source": null,
+      "nix_attr": "wl-clipboard",
+      "reason": "Wayland clipboard (wl-paste) for clipboard history."
+    },
+    {
+      "name": "grim",
+      "required": true,
+      "apt_name": "grim",
+      "source": null,
+      "nix_attr": "grim",
+      "reason": "Wayland screenshots."
+    },
+    {
+      "name": "slurp",
+      "required": true,
+      "apt_name": "slurp",
+      "source": null,
+      "nix_attr": "slurp",
+      "reason": "Select screenshot regions."
+    },
+    {
+      "name": "playerctl",
+      "required": true,
+      "apt_name": "playerctl",
+      "source": null,
+      "nix_attr": "playerctl",
+      "reason": "MPRIS media control."
+    },
+    {
+      "name": "brightnessctl",
+      "required": false,
+      "apt_name": "brightnessctl",
+      "source": null,
+      "nix_attr": "brightnessctl",
+      "reason": "Brightness controls where supported."
+    },
+    {
+      "name": "fontconfig",
+      "required": true,
+      "apt_name": "fontconfig",
+      "source": null,
+      "nix_attr": "fontconfig",
+      "reason": "Font discovery and configuration."
+    },
+    {
+      "name": "roboto-fonts",
+      "required": true,
+      "apt_name": "fonts-roboto",
+      "source": null,
+      "nix_attr": "roboto",
+      "reason": "Primary UI font referenced by Typography.family (\"Roboto\")."
+    },
+    {
+      "name": "material-symbols",
+      "required": true,
+      "apt_name": "fonts-material-symbols",
+      "source": null,
+      "nix_attr": "material-symbols",
+      "reason": "Icon font referenced by Typography.iconFamily (\"Material Symbols Rounded\"). If absent from APT, install the Google Material Symbols Rounded TTF into ~/.local/share/fonts."
+    },
+    {
+      "name": "fonts-noto-color-emoji",
+      "required": true,
+      "apt_name": "fonts-noto-color-emoji",
+      "source": null,
+      "nix_attr": null,
+      "reason": "Emoji font."
+    },
+    {
+      "name": "fonts-jetbrains-mono",
+      "required": false,
+      "apt_name": "fonts-jetbrains-mono",
+      "source": null,
+      "nix_attr": "jetbrains-mono",
+      "reason": "Monospace font."
+    },
+    {
+      "name": "xdg-desktop-portal",
+      "required": true,
+      "apt_name": "xdg-desktop-portal",
+      "source": null,
+      "nix_attr": null,
+      "reason": "Desktop portal integration."
+    },
+    {
+      "name": "xdg-desktop-portal-gtk",
+      "required": true,
+      "apt_name": "xdg-desktop-portal-gtk",
+      "source": null,
+      "nix_attr": null,
+      "reason": "GTK portal backend."
+    },
+    {
+      "name": "pipewire",
+      "required": true,
+      "apt_name": "pipewire",
+      "source": null,
+      "nix_attr": null,
+      "reason": "System audio integration."
+    },
+    {
+      "name": "wireplumber",
+      "required": true,
+      "apt_name": "wireplumber",
+      "source": null,
+      "nix_attr": null,
+      "reason": "PipeWire session manager."
+    },
+    {
+      "name": "network-manager",
+      "required": true,
+      "apt_name": "network-manager",
+      "source": null,
+      "nix_attr": null,
+      "reason": "System network management."
+    },
+    {
+      "name": "dunst",
+      "required": false,
+      "apt_name": "dunst",
+      "source": null,
+      "nix_attr": "dunst",
+      "reason": "Optional notification daemon."
+    },
+    {
+      "name": "cliphist",
+      "required": false,
+      "apt_name": null,
+      "source": {
+        "kind": "go",
+        "repo": "https://github.com/sentriz/cliphist.git",
+        "bin": "cliphist",
+        "apt_build_deps": ["golang-go"]
+      },
+      "nix_attr": "cliphist",
+      "reason": "Optional clipboard history. Not in Debian repositories; built with Go when desired."
+    },
+    {
+      "name": "hyprlock",
+      "required": false,
+      "apt_name": "hyprlock",
+      "source": null,
+      "nix_attr": "hyprlock",
+      "reason": "Optional lock screen."
+    },
+    {
+      "name": "hypridle",
+      "required": true,
+      "apt_name": "hypridle",
+      "source": null,
+      "nix_attr": "hypridle",
+      "reason": "Idle manager started by execs.lua."
+    },
+    {
+      "name": "swww",
+      "required": true,
+      "apt_name": "swww",
+      "source": null,
+      "nix_attr": "swww",
+      "reason": "Wallpaper daemon started by execs.lua (swww-daemon)."
+    },
+    {
+      "name": "hyprpaper",
+      "required": false,
+      "apt_name": "hyprpaper",
+      "source": null,
+      "nix_attr": "hyprpaper",
+      "reason": "Optional alternative wallpaper backend."
+    }
+  ],
+  "notes": [
+    "Default mode: APT first; if apt_name is null or the package is absent, build from source using the recipe in 'source'.",
+    "If both apt_name and source are null the package is skipped with a warning.",
+    "Source builds install into /usr/local and therefore require sudo.",
+    "Hyprland is APT-only by design (source: null); use --via-nix if it is unavailable in your repositories.",
+    "Nix attributes depend on the nixpkgs revision; --via-nix is fully self-contained and skips APT and source entirely.",
+    "Some fonts (e.g. fonts-material-symbols) may be missing from older repositories; the installer warns and continues."
+  ]
+}
