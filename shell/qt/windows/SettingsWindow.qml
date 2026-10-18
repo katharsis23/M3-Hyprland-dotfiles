@@ -214,7 +214,8 @@ M3Dialog {
                                 checked: ConfigProvider.animations; onToggled: (v) => ConfigProvider.animations = v }
                     SwitchRow { label: "Glass surfaces"; hint: "Translucent panels (blur needs a Hyprland layerrule)"
                                 checked: ConfigProvider.blurEnabled; onToggled: (v) => ConfigProvider.blurEnabled = v }
-                    SwitchRow { label: "Desktop clock"; checked: ConfigProvider.desktopClock; onToggled: (v) => ConfigProvider.desktopClock = v }
+                    SwitchRow { label: "Desktop clock"; hint: "Ambient clock on the bottom layer; tinted from the matugen palette (does not blur the wallpaper)"
+                                checked: ConfigProvider.desktopClock; onToggled: (v) => ConfigProvider.desktopClock = v }
                 }
 
                 // Assistant

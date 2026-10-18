@@ -27,6 +27,12 @@ PanelWindow {
     readonly property real autoBase: Math.min(M3Tokens.dp(168), (screen ? screen.height : 1080) * 0.17)
     readonly property real base: autoBase * ConfigProvider.clockScale
 
+    // Halo behind the digits so they stay readable over any wallpaper without
+    // needing a (buggy full-screen) backdrop blur. It is drawn from the theme
+    // surface in the *opposite* mode so it always contrasts with the wallpaper
+    // the digits sit on: dark-mode text gets a light halo and vice versa.
+    readonly property color haloColor: M3Theme.alpha(M3Theme.dark ? "#FFFFFF" : "#000000", 0.42)
+
     // Clock item + its draggable/resizable surface.
     Item {
         id: clock
@@ -45,15 +51,17 @@ PanelWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(clk.date, ConfigProvider.clock24h ? "HH:mm" : "h:mm AP")
             font.pixelSize: win.base; font.weight: Font.Thin; elide: Text.ElideNone
-            color: M3Theme.alpha(M3Theme.fg, 0.88)
-            style: Text.Raised; styleColor: M3Theme.alpha(M3Theme.surface, 0.55)
+            // Tint from the matugen palette so the clock recolours with the
+            // wallpaper. A raised halo gives contrast without a backdrop blur.
+            color: M3Theme.primaryText
+            style: Text.Raised; styleColor: win.haloColor
         }
         M3Text {
                 anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(clk.date, "dddd, d MMMM")
             font.pixelSize: Math.max(M3Tokens.dp(16), win.base * 0.17); font.weight: Font.Light; elide: Text.ElideNone
-            color: M3Theme.alpha(M3Theme.fg, 0.75)
-            style: Text.Raised; styleColor: M3Theme.alpha(M3Theme.surface, 0.55)
+            color: M3Theme.alpha(M3Theme.primaryText, 0.78)
+            style: Text.Raised; styleColor: win.haloColor
         }
     }
 

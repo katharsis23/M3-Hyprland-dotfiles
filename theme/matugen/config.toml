@@ -31,3 +31,14 @@ output_path = '~/.local/state/theme/generated/starship.toml'
 [templates.semantics]
 input_path  = '~/.config/matugen/templates/semantics.json'
 output_path = '~/.local/state/theme/generated/semantics.json'
+
+# GTK3 apps (file manager: Nemo, most Mint GTK apps). Written straight into the
+# GTK config dir so it applies on the next app launch without extra imports.
+[templates.gtk3]
+input_path  = '~/.config/matugen/templates/gtk-3.0.css'
+output_path = '~/.config/gtk-3.0/gtk.css'
+
+# GTK4 / libadwaita apps.
+[templates.gtk4]
+input_path  = '~/.config/matugen/templates/gtk-4.0.css'
+output_path = '~/.config/gtk-4.0/gtk.css'

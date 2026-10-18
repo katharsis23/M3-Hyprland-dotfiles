@@ -62,4 +62,6 @@ end
 # if test -f /etc/deepseek.key
 #     set -gx DEEPSEEK_API_KEY (cat /etc/deepseek.key)
 # end
-
+if test -f $HOME/Pictures/Wallpapers
+    set -gx WALLPAPER_DIR $HOME/Pictures/Wallpapers
+end
