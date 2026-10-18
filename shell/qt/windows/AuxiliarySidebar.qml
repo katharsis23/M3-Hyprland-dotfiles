@@ -29,10 +29,6 @@ M3Panel {
                 spacing: M3Tokens.dp(10)
                 CpuRamWidget { Layout.fillWidth: true; active: panel.open }
                 MediaPlayerWidget { Layout.fillWidth: true; active: panel.open }
-                AiChatWidget {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: Math.max(M3Tokens.dp(320), Math.min(M3Tokens.dp(460), panel.height * 0.55))
-                }
             }
         }
     }

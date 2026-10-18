@@ -1,3 +1,4 @@
 singleton ConfigProvider 1.0 ConfigProvider.qml
 singleton HyprlandIPC 1.0 HyprlandIPC.qml
 singleton SystemServices 1.0 SystemServices.qml
+singleton LauncherService 1.0 LauncherService.qml

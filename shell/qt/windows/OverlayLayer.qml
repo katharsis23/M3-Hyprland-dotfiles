@@ -78,6 +78,15 @@ PanelWindow {
             x: ov.width - width - (ov.pos === "right" ? ov.edge : ov.side)
             y: topInset
         }
+        AiSidebar {
+            readonly property int topInset: ov.pos === "top" ? ov.edge : ov.side
+            readonly property int bottomInset: ov.pos === "bottom" ? ov.edge : ov.side
+            open: ConfigProvider.leftSidebarOpen && ov.mine
+            width: Math.min(M3Tokens.dp(392), ov.maxW)
+            height: Math.max(M3Tokens.dp(200), ov.height - topInset - bottomInset)
+            x: (ov.pos === "left" ? ov.edge : ov.side)
+            y: topInset
+        }
         SettingsWindow {
             open: ConfigProvider.settingsOpen && ov.mine
             width: Math.min(M3Tokens.dp(820), ov.width - M3Tokens.dp(32))

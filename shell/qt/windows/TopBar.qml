@@ -69,7 +69,8 @@ PanelWindow {
                     verticalCenter: bar.vertical ? undefined : parent.verticalCenter
                     horizontalCenter: bar.vertical ? parent.horizontalCenter : undefined
                 }
-                M3IconButton { icon: "rocket_launch"; size: bar.btn; onClicked: HyprlandIPC.exec("fuzzel") }
+                M3IconButton { icon: "rocket_launch"; size: bar.btn; tooltip: "Launcher (Super+Space)"
+                               onClicked: LauncherService.toggle() }
                 M3IconButton { visible: !bar.tiny; icon: "folder"; size: bar.btn; onClicked: HyprlandIPC.exec("nemo") }
                 M3IconButton { visible: !bar.compact; icon: "keyboard"; size: bar.btn
                                toggled: ConfigProvider.shortcutsOpen
@@ -111,7 +112,11 @@ PanelWindow {
                               onClicked: ConfigProvider.toggleQuickSettings(bar.screenName) }
                 BarClock { vertical: bar.vertical; compact: bar.compact
                            onClicked: ConfigProvider.toggleCalendar(bar.screenName) }
-                M3IconButton { icon: "dock_to_left"; size: bar.btn; toggled: ConfigProvider.sidebarOpen
+                M3IconButton { icon: "smart_toy"; size: bar.btn; tooltip: "AI assistant (Super+A)"
+                               toggled: ConfigProvider.leftSidebarOpen
+                               onClicked: ConfigProvider.toggleLeftSidebar(bar.screenName) }
+                M3IconButton { icon: "dock_to_left"; size: bar.btn; tooltip: "System sidebar (Super+D)"
+                               toggled: ConfigProvider.sidebarOpen
                                onClicked: ConfigProvider.toggleSidebar(bar.screenName) }
             }
         }

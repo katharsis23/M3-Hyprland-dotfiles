@@ -15,6 +15,7 @@ ShellRoot {
             TopBar { screen: scope.modelData }
             DesktopClock { screen: scope.modelData }
             OverlayLayer { screen: scope.modelData }
+            Launcher { screen: scope.modelData }
         }
     }
 
@@ -22,6 +23,8 @@ ShellRoot {
     IpcHandler {
         target: "shell"
         function toggleSidebar(): void { ConfigProvider.toggleSidebar("") }
+        function toggleAiSidebar(): void { ConfigProvider.toggleLeftSidebar("") }
+        function openLauncher(): void { LauncherService.toggle() }
         function toggleQuickSettings(): void { ConfigProvider.toggleQuickSettings("") }
         function toggleCalendar(): void { ConfigProvider.toggleCalendar("") }
         function toggleSettings(): void { ConfigProvider.toggleSettings("") }

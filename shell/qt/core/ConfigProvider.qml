@@ -28,6 +28,8 @@ Singleton {
     property bool quickSettingsOpen: false
     property bool calendarOpen: false
     property bool sidebarOpen: false
+    // Separate LEFT sidebar that hosts the AI assistant.
+    property bool leftSidebarOpen: false
     property bool settingsOpen: false
     property bool shortcutsOpen: false
     property bool dnd: false
@@ -36,14 +38,22 @@ Singleton {
     property string overlayScreen: ""
 
     readonly property bool dialogOpen: settingsOpen || shortcutsOpen
-    readonly property bool anyOpen: quickSettingsOpen || calendarOpen || sidebarOpen || dialogOpen
+    readonly property bool anyOpen: quickSettingsOpen || calendarOpen || sidebarOpen
+                                    || leftSidebarOpen || dialogOpen
+
+    // ---- Desktop clock placement (draggable + resizable) ------------------
+    // Normalised position (0..1) of the clock centre and a size multiplier,
+    // persisted so the user can drag/resize the ambient clock and keep it.
+    property real clockX: 0.5
+    property real clockY: 0.5
+    property real clockScale: 1.0
 
     function focusedScreenName() {
         return Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
     }
     function closeAll() {
         quickSettingsOpen = false; calendarOpen = false; sidebarOpen = false
-        settingsOpen = false; shortcutsOpen = false
+        leftSidebarOpen = false; settingsOpen = false; shortcutsOpen = false
     }
     function _toggle(prop, screenName) {
         const wasOpen = root[prop]
@@ -56,6 +66,7 @@ Singleton {
     function toggleQuickSettings(s) { _toggle("quickSettingsOpen", s) }
     function toggleCalendar(s)      { _toggle("calendarOpen", s) }
     function toggleSidebar(s)       { _toggle("sidebarOpen", s) }
+    function toggleLeftSidebar(s)   { _toggle("leftSidebarOpen", s) }
     function toggleSettings(s)      { _toggle("settingsOpen", s) }
     function toggleShortcuts(s)     { _toggle("shortcutsOpen", s) }
 
@@ -91,6 +102,9 @@ Singleton {
             if (typeof o.desktopClock === "boolean") desktopClock = o.desktopClock
             if (typeof o.swwwTransition === "string") swwwTransition = o.swwwTransition
             if (typeof o.aiModel === "string" && o.aiModel !== "") aiModel = o.aiModel
+            if (typeof o.clockX === "number") clockX = Math.max(0, Math.min(1, o.clockX))
+            if (typeof o.clockY === "number") clockY = Math.max(0, Math.min(1, o.clockY))
+            if (typeof o.clockScale === "number") clockScale = Math.max(0.5, Math.min(3.0, o.clockScale))
         } catch (e) { /* missing or corrupt file: keep defaults */ }
         _loaded = true
     }
@@ -100,7 +114,8 @@ Singleton {
             barPosition: barPosition, barMode: barMode, seedColor: "" + seedColor,
             darkMode: darkMode, uiScale: uiScale, clockSeconds: clockSeconds,
             clock24h: clock24h, animations: animations, blurEnabled: blurEnabled,
-            desktopClock: desktopClock, swwwTransition: swwwTransition, aiModel: aiModel
+            desktopClock: desktopClock, swwwTransition: swwwTransition, aiModel: aiModel,
+            clockX: clockX, clockY: clockY, clockScale: clockScale
         }, null, 2) + "\n"
     }
 
@@ -118,10 +133,14 @@ Singleton {
     onDesktopClockChanged: _dirty()
     onSwwwTransitionChanged: _dirty()
     onAiModelChanged: _dirty()
+    onClockXChanged: _dirty()
+    onClockYChanged: _dirty()
+    onClockScaleChanged: _dirty()
 
     function resetDefaults() {
         barPosition = "top"; barMode = "float"; seedColor = "#6750A4"; darkMode = true
         uiScale = 1.0; clockSeconds = false; clock24h = true; animations = true
         blurEnabled = true; desktopClock = true; aiModel = "llama3"
+        clockX = 0.5; clockY = 0.5; clockScale = 1.0
     }
 }
