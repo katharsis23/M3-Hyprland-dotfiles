@@ -24,7 +24,13 @@ Usage: scripts/install.sh [options]
 
 Default backend: APT first. If a package is not available in your APT
 repositories it is built from source as declared in dependencies.json.
-Packages with neither an APT name nor a source recipe are skipped.
+Some dependencies (Nerd Fonts, starship) are fetched as upstream release
+artifacts into ~/.local because they are not packaged for APT.
+
+Config step installs the Hyprland modules plus the terminal theme stack:
+matugen (config + templates), kitty, fish and starship, then generates an
+initial Material 3 palette from the current wallpaper. Re-run the palette at
+any time with scripts/apply-theme.sh [image] (or `theme` inside fish).
 
 This installer does not edit SDDM or remove Cinnamon. Keep Cinnamon as a
 recovery session.
@@ -281,6 +287,68 @@ install_package_default() {
   return 1
 }
 
+# --- Special-case package installers ---------------------------------------
+# Some dependencies are not packaged in APT and have no source recipe in the
+# manifest; they are fetched as upstream release artifacts into ~/.local.
+
+install_nerd_font() {
+  local font_dir="$HOME/.local/share/fonts/JetBrainsMonoNerdFont"
+  if fc-list 2>/dev/null | grep -qi 'JetBrainsMono Nerd Font'; then
+    ok "JetBrainsMono Nerd Font already available."
+    return 0
+  fi
+  if (( DRY_RUN )); then
+    log "Would download JetBrainsMono Nerd Font into $font_dir and run fc-cache."
+    return 0
+  fi
+  have curl || { warn "curl is required to download Nerd Fonts."; return 1; }
+  have unzip || { warn "unzip is required to extract Nerd Fonts."; return 1; }
+  local url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+  local tmp; tmp="$(mktemp -d)"
+  log "Downloading JetBrainsMono Nerd Font…"
+  if ! curl -fL --retry 3 -o "$tmp/JetBrainsMono.zip" "$url"; then
+    warn "Failed to download Nerd Font archive from $url"
+    rm -rf "$tmp"; return 1
+  fi
+  mkdir -p "$font_dir"
+  unzip -oq "$tmp/JetBrainsMono.zip" -d "$font_dir"
+  rm -rf "$tmp"
+  have fc-cache && fc-cache -f "$font_dir" >/dev/null 2>&1 || true
+  ok "Installed Nerd Fonts into $font_dir"
+}
+
+install_starship() {
+  local bin_dir="$HOME/.local/bin" dest="$HOME/.local/bin/starship"
+  if have starship; then
+    ok "starship already on PATH: $(command -v starship)"
+    return 0
+  fi
+  if (( DRY_RUN )); then
+    log "Would install starship into $dest (upstream install script)."
+    return 0
+  fi
+  have curl || { warn "curl is required to install starship."; return 1; }
+  mkdir -p "$bin_dir"
+  log "Installing starship into $bin_dir via the upstream installer…"
+  if curl -fsSL https://starship.rs/install.sh | sh -s -- -y -b "$bin_dir" >/dev/null; then
+    ok "Installed starship into $bin_dir"
+    case ":$PATH:" in *":$bin_dir:"*) ;; *) export PATH="$bin_dir:$PATH" ;; esac
+    return 0
+  fi
+  warn "starship install script failed; install it manually from https://starship.rs"
+  return 1
+}
+
+# Route a manifest package to a special-case installer when applicable.
+# Returns 127 when the package is not special-cased.
+install_special_package() {
+  case "$1" in
+    nerd-fonts) install_nerd_font ;;
+    starship)   install_starship ;;
+    *)          return 127 ;;
+  esac
+}
+
 # --- Package installation --------------------------------------------------
 install_packages() {
   local -a failed_required=()
@@ -306,7 +374,15 @@ install_packages() {
         warn "No Nix attribute declared for $name; skipping in --via-nix mode."
       fi
     else
-      install_package_default "$name" "$apt_name" "$blob" && installed=1
+      # Special-case upstream artifacts first (nerd fonts, starship), then the
+      # normal APT-first / source-build resolution.
+      local special_rc=0
+      install_special_package "$name" || special_rc=$?
+      if (( special_rc == 0 )); then
+        installed=1
+      elif (( special_rc == 127 )); then
+        install_package_default "$name" "$apt_name" "$blob" && installed=1
+      fi
     fi
 
     if (( ! installed )); then
@@ -358,6 +434,96 @@ verify_install() {
 }
 
 # --- Config application ----------------------------------------------------
+# Install matugen + templates and the kitty / fish / starship configs, then
+# generate the initial theme so a brand-new install is already themed.
+apply_terminal_config() {
+  local CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+  local STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/theme/generated"
+  local MATUGEN_HOME="$CONFIG_HOME/matugen"
+  local KITTY_HOME="$CONFIG_HOME/kitty"
+  local FISH_HOME="$CONFIG_HOME/fish"
+
+  local SRC_THEME="$ROOT_DIR/theme"
+
+  if (( DRY_RUN )); then
+    log "Would install matugen config: $MATUGEN_HOME/config.toml"
+    log "Would install matugen templates into: $MATUGEN_HOME/templates"
+    log "Would install kitty config: $KITTY_HOME/kitty.conf"
+    log "Would install fish config: $FISH_HOME/config.fish"
+    log "Would install starship config: $CONFIG_HOME/starship.toml"
+    log "Would install wallpaper/theme script: $CONFIG_HOME/hypr/scripts/apply-theme.sh"
+    log "Would generate the initial palette into: $STATE_DIR"
+    return 0
+  fi
+
+  # --- matugen config + templates -----------------------------------------
+  mkdir -p "$MATUGEN_HOME/templates"
+  if [[ -f "$MATUGEN_HOME/config.toml" ]] && \
+     ! cmp -s "$SRC_THEME/matugen/config.toml" "$MATUGEN_HOME/config.toml"; then
+    backup_file "$MATUGEN_HOME/config.toml"
+  fi
+  install -m 0644 "$SRC_THEME/matugen/config.toml" "$MATUGEN_HOME/config.toml"
+
+  local tpl
+  for tpl in "$SRC_THEME"/templates/*; do
+    [[ -f "$tpl" ]] || continue
+    local dst="$MATUGEN_HOME/templates/$(basename -- "$tpl")"
+    if [[ -e "$dst" ]] && ! cmp -s "$tpl" "$dst"; then
+      backup_file "$dst"
+    fi
+    install -m 0644 "$tpl" "$dst"
+  done
+  ok "Installed matugen config and templates into $MATUGEN_HOME"
+
+  # --- kitty ---------------------------------------------------------------
+  mkdir -p "$KITTY_HOME"
+  if [[ -e "$KITTY_HOME/kitty.conf" ]] && \
+     ! cmp -s "$ROOT_DIR/kitty/kitty.conf" "$KITTY_HOME/kitty.conf"; then
+    backup_file "$KITTY_HOME/kitty.conf"
+  fi
+  install -m 0644 "$ROOT_DIR/kitty/kitty.conf" "$KITTY_HOME/kitty.conf"
+  ok "Installed kitty config: $KITTY_HOME/kitty.conf"
+
+  # --- fish ----------------------------------------------------------------
+  mkdir -p "$FISH_HOME"
+  if [[ -e "$FISH_HOME/config.fish" ]] && \
+     ! cmp -s "$ROOT_DIR/fish/config.fish" "$FISH_HOME/config.fish"; then
+    backup_file "$FISH_HOME/config.fish"
+  fi
+  install -m 0644 "$ROOT_DIR/fish/config.fish" "$FISH_HOME/config.fish"
+  ok "Installed fish config: $FISH_HOME/config.fish"
+
+  # --- starship (static fallback; generated copy overrides at runtime) -----
+  if [[ -e "$CONFIG_HOME/starship.toml" ]] && \
+     ! cmp -s "$ROOT_DIR/starship/starship.toml" "$CONFIG_HOME/starship.toml"; then
+    backup_file "$CONFIG_HOME/starship.toml"
+  fi
+  install -m 0644 "$ROOT_DIR/starship/starship.toml" "$CONFIG_HOME/starship.toml"
+  ok "Installed starship config: $CONFIG_HOME/starship.toml"
+
+  # --- apply-theme helper (next to the other hypr scripts) -----------------
+  mkdir -p "$CONFIG_HOME/hypr/scripts"
+  if [[ -e "$CONFIG_HOME/hypr/scripts/apply-theme.sh" ]] && \
+     ! cmp -s "$ROOT_DIR/scripts/apply-theme.sh" "$CONFIG_HOME/hypr/scripts/apply-theme.sh"; then
+    backup_file "$CONFIG_HOME/hypr/scripts/apply-theme.sh"
+  fi
+  install -m 0755 "$ROOT_DIR/scripts/apply-theme.sh" "$CONFIG_HOME/hypr/scripts/apply-theme.sh"
+  ok "Installed theme helper: $CONFIG_HOME/hypr/scripts/apply-theme.sh"
+
+  # --- generate the initial palette ---------------------------------------
+  mkdir -p "$STATE_DIR"
+  if have matugen; then
+    log "Generating initial Material 3 palette from the current wallpaper."
+    if "$ROOT_DIR/scripts/apply-theme.sh" --mode dark; then
+      ok "Generated theme files in $STATE_DIR"
+    else
+      warn "Initial palette generation failed; run scripts/apply-theme.sh manually."
+    fi
+  else
+    warn "matugen not on PATH yet; skipping initial palette generation."
+  fi
+}
+
 apply_config() {
   if [[ ! -f /etc/linuxmint/info ]]; then
     warn "This project targets Linux Mint/Debian-like systems; continuing cautiously."
@@ -380,6 +546,7 @@ apply_config() {
     log "Would source the modular hyprland.conf from $HYPR_MAIN"
     log "Would remove any stale *.lua configs from $HYPR_DIR"
     log "Would install default app preferences into $CONFIG_HOME/material-hyprland"
+    apply_terminal_config
     return 0
   fi
 
@@ -472,6 +639,9 @@ apply_config() {
   else
     warn "hyprland not on PATH yet; skipping config validation."
   fi
+
+  # Terminal stack: matugen + kitty + fish + starship, then initial palette.
+  apply_terminal_config
 
   ok "Configuration applied."
 }

@@ -125,6 +125,14 @@
       "reason": "Download utility."
     },
     {
+      "name": "unzip",
+      "required": true,
+      "apt_name": "unzip",
+      "source": null,
+      "nix_attr": "unzip",
+      "reason": "Extracts the Nerd Font release archive."
+    },
+    {
       "name": "jq",
       "required": true,
       "apt_name": "jq",
@@ -205,12 +213,36 @@
       "reason": "Emoji font."
     },
     {
+      "name": "python3",
+      "required": true,
+      "apt_name": "python3",
+      "source": null,
+      "nix_attr": "python3",
+      "reason": "Standard-library JSON parsing in the installer and the wallpaper/theme scripts."
+    },
+    {
+      "name": "starship",
+      "required": true,
+      "apt_name": null,
+      "source": null,
+      "nix_attr": "starship",
+      "reason": "Cross-shell prompt. Usually absent from Mint/Ubuntu APT repositories; the installer fetches the upstream release binary, or installs it via Nix with --via-nix."
+    },
+    {
+      "name": "nerd-fonts",
+      "required": true,
+      "apt_name": null,
+      "source": null,
+      "nix_attr": "nerd-fonts.jetbrains-mono",
+      "reason": "JetBrainsMono Nerd Font, used by kitty, Fish/Starship and the Quickshell UI. The stock fonts-jetbrains-mono package lacks Nerd Font glyphs, so the installer downloads the patched font into ~/.local/share/fonts."
+    },
+    {
       "name": "fonts-jetbrains-mono",
       "required": false,
       "apt_name": "fonts-jetbrains-mono",
       "source": null,
       "nix_attr": "jetbrains-mono",
-      "reason": "Monospace font."
+      "reason": "Base JetBrains Mono (kept as a non-Nerd fallback)."
     },
     {
       "name": "xdg-desktop-portal",
@@ -312,6 +344,7 @@
     "Source builds install into /usr/local and therefore require sudo.",
     "Hyprland is APT-only by design (source: null); use --via-nix if it is unavailable in your repositories.",
     "Nix attributes depend on the nixpkgs revision; --via-nix is fully self-contained and skips APT and source entirely.",
-    "Some fonts (e.g. fonts-material-symbols) may be missing from older repositories; the installer warns and continues."
+    "Some fonts (e.g. fonts-material-symbols) may be missing from older repositories; the installer warns and continues.",
+    "Packages with a null apt_name AND null source (e.g. starship, nerd-fonts) are handled by dedicated installer steps (upstream release download into ~/.local) in the default backend, and by their nix_attr with --via-nix."
   ]
 }
