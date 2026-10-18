@@ -1,0 +1,3 @@
+singleton M3Theme 1.0 M3Theme.qml
+singleton M3Tokens 1.0 M3Tokens.qml
+singleton Typography 1.0 Typography.qml
