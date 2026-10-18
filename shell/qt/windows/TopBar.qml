@@ -10,6 +10,10 @@ import "../components"
 // Adaptive bar: top / bottom / left / right, float (separate "islands") or hug
 // (one edge-to-edge strip). Modules drop out by priority when the bar is short,
 // and the clock/tray re-orient themselves on vertical bars.
+//
+// Priority (first to go -> last to go):
+//   window title  ->  shortcuts button  ->  file manager + AI button  ->  tray/clock detail
+// The launcher, workspaces, clock and system-sidebar button always stay.
 PanelWindow {
     id: bar
 
@@ -18,11 +22,41 @@ PanelWindow {
     readonly property bool vertical: pos === "left" || pos === "right"
     readonly property bool floating: M3Tokens.barFloating
     readonly property int thickness: M3Tokens.barThickness
-    readonly property real length: vertical ? height : width
-    readonly property bool compact: length < M3Tokens.dp(820)     // drop shortcuts, date, bluetooth
-    readonly property bool tiny: length < M3Tokens.dp(520)        // also drop file manager, workspace labels
-    readonly property bool showTitle: !vertical && length > M3Tokens.dp(1100)
-    readonly property int btn: M3Tokens.dp(32)
+    // Hug mode is a true edge-to-edge strip, so it takes no outer gap.
+    readonly property int edgeGap: floating ? M3Tokens.barGap : 0
+
+    // ---- adaptivity ------------------------------------------------------
+    // Length along the bar's axis. Based on the screen so it is correct on the very
+    // first frame (a PanelWindow reports width/height 0 until the compositor
+    // configures it, which used to flash the bar in its smallest layout).
+    readonly property real length: {
+        const full = (screen && (vertical ? screen.height : screen.width) > 0)
+                     ? (vertical ? screen.height : screen.width)
+                     : (vertical ? height : width)
+        return full > 0 ? full - 2 * edgeGap : 100000
+    }
+    // Breakpoints in one place; tune these if you add widgets.
+    readonly property real compactBelow: M3Tokens.dp(820)   // drop shortcuts, date, bluetooth
+    readonly property real tinyBelow: M3Tokens.dp(520)      // also drop file manager, AI, workspace labels
+    readonly property bool compact: length < compactBelow
+    readonly property bool tiny: length < tinyBelow
+
+    // Buttons shrink if the bar is thin enough that 32dp ones would touch the island edge.
+    readonly property int islandPad: M3Tokens.dp(4)
+    readonly property int cross: thickness - (floating ? 0 : M3Tokens.dp(8))
+    readonly property int btn: Math.max(M3Tokens.dp(24), Math.min(M3Tokens.dp(32), cross - islandPad * 2))
+
+    // The title only appears if it genuinely fits beside the (true-centre) workspace
+    // island, measured from real widths instead of a fixed screen-size guess.
+    readonly property int startButtons: 1 + (tiny ? 0 : 1) + (compact ? 0 : 1)
+    readonly property real titleRoom: {
+        if (vertical) return 0
+        const gap = M3Tokens.dp(2)
+        const buttons = startButtons * btn + (startButtons - 1) * gap + islandPad * 2
+        const share = (length - centerIsland.implicitWidth) / 2 - M3Tokens.dp(6)  // minus column spacing
+        return share - buttons - gap - M3Tokens.dp(18)                           // minus title margins
+    }
+    readonly property bool showTitle: titleRoom >= M3Tokens.dp(96)
 
     anchors {
         top: pos !== "bottom"
@@ -30,7 +64,7 @@ PanelWindow {
         left: pos !== "right"
         right: pos !== "left"
     }
-    margins { top: M3Tokens.barGap; bottom: M3Tokens.barGap; left: M3Tokens.barGap; right: M3Tokens.barGap }
+    margins { top: bar.edgeGap; bottom: bar.edgeGap; left: bar.edgeGap; right: bar.edgeGap }
     implicitHeight: vertical ? 0 : thickness
     implicitWidth: vertical ? thickness : 0
     color: "transparent"
@@ -77,7 +111,7 @@ PanelWindow {
                                onClicked: ConfigProvider.toggleShortcuts(bar.screenName) }
                 M3Text {
                     visible: bar.showTitle && HyprlandIPC.activeTitle !== ""
-                    Layout.maximumWidth: M3Tokens.dp(280)
+                    Layout.maximumWidth: Math.min(M3Tokens.dp(320), Math.max(0, bar.titleRoom))
                     Layout.leftMargin: M3Tokens.dp(8); Layout.rightMargin: M3Tokens.dp(10)
                     text: HyprlandIPC.activeTitle; type: "label"; muted: true
                     elide: Text.ElideMiddle
@@ -87,6 +121,7 @@ PanelWindow {
 
         // ---- center (true centre: start and end share equal widths) -----
         BarIsland {
+            id: centerIsland
             vertical: bar.vertical; floating: bar.floating; thickness: bar.thickness
             Layout.alignment: Qt.AlignCenter
             WorkspaceBar {
@@ -112,7 +147,7 @@ PanelWindow {
                               onClicked: ConfigProvider.toggleQuickSettings(bar.screenName) }
                 BarClock { vertical: bar.vertical; compact: bar.compact
                            onClicked: ConfigProvider.toggleCalendar(bar.screenName) }
-                M3IconButton { icon: "smart_toy"; size: bar.btn; tooltip: "AI assistant (Super+Alt+L)"
+                M3IconButton { visible: !bar.tiny; icon: "smart_toy"; size: bar.btn; tooltip: "AI assistant (Super+Alt+L)"
                                toggled: ConfigProvider.leftSidebarOpen
                                onClicked: ConfigProvider.toggleLeftSidebar(bar.screenName) }
                 M3IconButton { icon: "dock_to_left"; size: bar.btn; tooltip: "System sidebar (Super+D)"
