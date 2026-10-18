@@ -1,0 +1,7 @@
+{
+  "browser": ["zen", "zen-browser", "firefox"],
+  "fileManager": ["nemo", "dolphin", "thunar"],
+  "terminal": ["kitty", "alacritty", "gnome-terminal"],
+  "wallpaper": ["swww", "hyprpaper"],
+  "screenshot": ["grim"]
+}

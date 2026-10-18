@@ -371,12 +371,14 @@ apply_config() {
   local SRC_HYPR="$ROOT_DIR/hypr"
 
   [[ -d "$ROOT_DIR/shell" ]] || die "Missing shell directory: $ROOT_DIR/shell"
-  [[ -f "$SRC_HYPR/hyprland.lua" ]] || die "Missing Hyprland config: $SRC_HYPR/hyprland.lua"
+  [[ -f "$SRC_HYPR/hyprland.conf" ]] \
+    || die "Missing Hyprland config: $SRC_HYPR/hyprland.conf"
 
   if (( DRY_RUN )); then
     log "Would link Quickshell config: $QS_LINK -> $ROOT_DIR/shell"
-    log "Would install Hyprland Lua config into: $HYPR_DIR"
-    log "Would source hyprland.lua from $HYPR_MAIN"
+    log "Would install Hyprland config (.conf modules) into: $HYPR_DIR"
+    log "Would source the modular hyprland.conf from $HYPR_MAIN"
+    log "Would remove any stale *.lua configs from $HYPR_DIR"
     log "Would install default app preferences into $CONFIG_HOME/material-hyprland"
     return 0
   fi
@@ -395,7 +397,7 @@ apply_config() {
     ok "Linked $QS_LINK -> $ROOT_DIR/shell"
   fi
 
-  # Hyprland: copy the Lua tree (env, execs, general, rules, shortcuts).
+  # Hyprland: copy the conf tree (hyprland.conf + hyprland/*.conf modules).
   local rel src dst
   while IFS= read -r -d '' rel; do
     src="$SRC_HYPR/$rel"; dst="$HYPR_DIR/$rel"
@@ -404,7 +406,24 @@ apply_config() {
       backup_file "$dst"
     fi
     install -m 0644 "$src" "$dst"
-  done < <(cd "$SRC_HYPR" && find . -type f \( -name '*.lua' -o -name '*.conf' \) -print0)
+  done < <(cd "$SRC_HYPR" && find . -type f -name '*.conf' -print0)
+
+  # Remove stale Lua fragments left behind by earlier revisions of this
+  # installer. Hyprland only parses `key = value` config, so any *.lua file
+  # pulled in via `source =` fails with "Invalid config line".
+  local stale
+  for stale in "$HYPR_DIR/hyprland.lua" \
+               "$HYPR_DIR"/hyprland/env.lua \
+               "$HYPR_DIR"/hyprland/execs.lua \
+               "$HYPR_DIR"/hyprland/general.lua \
+               "$HYPR_DIR"/hyprland/rules.lua \
+               "$HYPR_DIR"/hyprland/shortcuts.lua; do
+    if [[ -e "$stale" ]]; then
+      backup_file "$stale"
+      rm -f "$stale"
+      warn "Removed unsupported Lua config: $stale (Hyprland only parses .conf)"
+    fi
+  done
 
   # Scripts referenced by keybinds/execs.
   if [[ -d "$SRC_HYPR/scripts" ]]; then
@@ -412,17 +431,21 @@ apply_config() {
     local s
     while IFS= read -r -d '' s; do
       install -m 0755 "$s" "$HYPR_DIR/scripts/$(basename -- "$s")"
-    done < <(find "$SRC_HYPR/scripts" -type f -print0)
+    done < <(find "$SRC_HYPR/scripts" -type f ! -path '*/__pycache__/*' -print0)
   fi
 
-  # Source hyprland.lua from the main config.
-  if [[ ! -e "$HYPR_MAIN" ]]; then
-    printf '# Hyprland main config\n' > "$HYPR_MAIN"
-  fi
-  if ! grep -Fqx 'source = ~/.config/hypr/hyprland.lua' "$HYPR_MAIN"; then
-    backup_file "$HYPR_MAIN"
-    printf '\n# Material Hyprland starter (Lua modular config)\nsource = ~/.config/hypr/hyprland.lua\n' >> "$HYPR_MAIN"
-    ok "Added source line to $HYPR_MAIN"
+  # The copied $HYPR_MAIN already sources the modular *.conf files under
+  # $HYPR_DIR/hyprland/. Remove any stale *self-referencing* source lines left
+  # behind by earlier revisions of this installer (they caused infinite config
+  # recursion) and any stale Lua source lines.
+  if [[ -e "$HYPR_MAIN" ]]; then
+    if grep -Eq '^[[:space:]]*source[[:space:]]*=[[:space:]]*~/.config/hypr/hyprland\.(conf|lua)[[:space:]]*$' "$HYPR_MAIN"; then
+      backup_file "$HYPR_MAIN"
+      sed -i -E '\#^[[:space:]]*source[[:space:]]*=[[:space:]]*~/.config/hypr/hyprland\.(conf|lua)[[:space:]]*$#d' "$HYPR_MAIN"
+      # Trim a trailing blank line left behind by the removed entry.
+      sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$HYPR_MAIN" || true
+      warn "Removed stale self/Lua source line from $HYPR_MAIN"
+    fi
   fi
 
   # Default app preferences.
@@ -430,6 +453,24 @@ apply_config() {
   if [[ ! -e "$CONFIG_HOME/material-hyprland/apps.json" ]]; then
     install -m 0644 "$ROOT_DIR/config/defaults/apps.json" \
       "$CONFIG_HOME/material-hyprland/apps.json"
+  fi
+
+  if have hyprland; then
+    log "Validating Hyprland config with --verify-config."
+    local verify_out
+    if verify_out="$(hyprland --verify-config 2>&1)"; then
+      if grep -qi 'config error' <<<"$verify_out"; then
+        warn "Hyprland reported config errors:"
+        printf '%s\n' "$verify_out" >&2
+      else
+        ok "Hyprland config parses cleanly."
+      fi
+    else
+      warn "hyprland --verify-config failed:"
+      printf '%s\n' "$verify_out" >&2
+    fi
+  else
+    warn "hyprland not on PATH yet; skipping config validation."
   fi
 
   ok "Configuration applied."
