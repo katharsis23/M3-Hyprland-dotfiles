@@ -147,6 +147,29 @@ M3Dialog {
                                    onClicked: { const c = Palette.parseHex(hex.text)
                                                 if (c) ConfigProvider.seedColor = "#" + hex.text.replace("#", "").slice(-6) } }
                     }
+                    M3Text { Layout.fillWidth: true; wrapMode: Text.Wrap; elide: Text.ElideNone; type: "caption"; muted: true
+                             text: "Light/Dark recolours the whole desktop — the shell, kitty/fish/starship and GTK apps (Nemo) — via matugen." }
+                    SectionLabel { text: "Contrast" }
+                    M3Slider {
+                        id: contrastSlider
+                        Layout.fillWidth: true; from: -100; to: 100; stepSize: 5; showValue: true; icon: "contrast"
+                        onPressedChanged: if (!pressed) ConfigProvider.themeContrast = value / 100
+                        Binding on value { when: !contrastSlider.pressed; value: ConfigProvider.themeContrast * 100 }
+                    }
+                    SectionLabel { text: "Wallpaper" }
+                    RowLayout {
+                        Layout.fillWidth: true; spacing: M3Tokens.dp(8)
+                        M3Text { Layout.fillWidth: true; type: "caption"; muted: true; wrapMode: Text.Wrap; elide: Text.ElideNone
+                                 text: "Change the wallpaper (and regenerate the palette from it)." }
+                        M3Button { text: "Pick…"; icon: "wallpaper"; variant: "tonal"; compact: true
+                                   onClicked: ConfigProvider.toggleWallpaper("") }
+                    }
+                    SwitchRow {
+                        label: "Blur wallpaper"
+                        hint: "Soften the background image (needs ImageMagick). The colour palette is still sampled from the sharp image."
+                        checked: WallpaperService.blur
+                        onToggled: (v) => WallpaperService.setBlur(v)
+                    }
                     SectionLabel { text: "Interface scale" }
                     M3Slider {
                         id: scaleSlider

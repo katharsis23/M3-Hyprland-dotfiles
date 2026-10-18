@@ -34,6 +34,8 @@ M3Panel {
                 M3IconButton { icon: ConfigProvider.darkMode ? "light_mode" : "dark_mode"
                                tooltip: ConfigProvider.darkMode ? "Light theme" : "Dark theme"
                                onClicked: ConfigProvider.darkMode = !ConfigProvider.darkMode }
+                M3IconButton { icon: "wallpaper"; tooltip: "Wallpaper (Super+Ctrl+T)"
+                               onClicked: ConfigProvider.toggleWallpaper(ConfigProvider.overlayScreen) }
                 M3IconButton { icon: "keyboard"; tooltip: "Shortcuts"
                                onClicked: ConfigProvider.toggleShortcuts(ConfigProvider.overlayScreen) }
                 M3IconButton { icon: "settings"; tooltip: "Settings"

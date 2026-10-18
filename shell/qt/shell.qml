@@ -29,6 +29,7 @@ ShellRoot {
         function toggleCalendar(): void { ConfigProvider.toggleCalendar("") }
         function toggleSettings(): void { ConfigProvider.toggleSettings("") }
         function toggleShortcuts(): void { ConfigProvider.toggleShortcuts("") }
+        function toggleWallpaper(): void { ConfigProvider.toggleWallpaper("") }
         function closeAll(): void { ConfigProvider.closeAll() }
     }
 }

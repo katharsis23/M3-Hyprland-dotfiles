@@ -99,5 +99,11 @@ PanelWindow {
             height: Math.min(M3Tokens.dp(620), ov.height - M3Tokens.dp(32))
             x: (ov.width - width) / 2; y: (ov.height - height) / 2
         }
+        WallpaperPicker {
+            open: ConfigProvider.wallpaperOpen && ov.mine
+            width: Math.min(M3Tokens.dp(860), ov.width - M3Tokens.dp(32))
+            height: Math.min(M3Tokens.dp(640), ov.height - M3Tokens.dp(32))
+            x: (ov.width - width) / 2; y: (ov.height - height) / 2
+        }
     }
 }

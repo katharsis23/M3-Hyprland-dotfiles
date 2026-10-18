@@ -112,7 +112,7 @@ PanelWindow {
                               onClicked: ConfigProvider.toggleQuickSettings(bar.screenName) }
                 BarClock { vertical: bar.vertical; compact: bar.compact
                            onClicked: ConfigProvider.toggleCalendar(bar.screenName) }
-                M3IconButton { icon: "smart_toy"; size: bar.btn; tooltip: "AI assistant (Super+A)"
+                M3IconButton { icon: "smart_toy"; size: bar.btn; tooltip: "AI assistant (Super+Alt+L)"
                                toggled: ConfigProvider.leftSidebarOpen
                                onClicked: ConfigProvider.toggleLeftSidebar(bar.screenName) }
                 M3IconButton { icon: "dock_to_left"; size: bar.btn; tooltip: "System sidebar (Super+D)"
