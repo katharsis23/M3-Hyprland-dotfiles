@@ -1,0 +1,33 @@
+# ~/.config/matugen/config.toml
+# Material 3 palette generation driven by the active wallpaper.
+#
+# Usage (see scripts/apply-theme.sh):
+#   matugen image <wallpaper> --mode dark   # or --mode light
+#
+# Every template below reads {{colors.*}} tokens from matugen and writes the
+# resolved theme into ~/.local/state/theme/generated/. Kitty, Fish and Starship
+# all source their files from there, so a single matugen run recolours the
+# whole terminal stack.
+
+[config]
+version_check = false
+
+# Kitty colour palette (included by ~/.config/kitty/kitty.conf).
+[templates.kitty]
+input_path  = '~/.config/matugen/templates/kitty.conf'
+output_path = '~/.local/state/theme/generated/kitty.conf'
+
+# Fish shell syntax colours (sourced by ~/.config/fish/config.fish).
+[templates.fish]
+input_path  = '~/.config/matugen/templates/fish-colors.fish'
+output_path = '~/.local/state/theme/generated/fish-colors.fish'
+
+# Starship prompt palette (STARSHIP_CONFIG points here on a themed shell).
+[templates.starship]
+input_path  = '~/.config/matugen/templates/starship.toml'
+output_path = '~/.local/state/theme/generated/starship.toml'
+
+# Semantic JSON consumed by the Quickshell UI palette loader.
+[templates.semantics]
+input_path  = '~/.config/matugen/templates/semantics.json'
+output_path = '~/.local/state/theme/generated/semantics.json'
