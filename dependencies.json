@@ -326,8 +326,8 @@
       "required": true,
       "apt_name": "swww",
       "source": null,
-      "nix_attr": "swww",
-      "reason": "Wallpaper daemon started by execs.lua (swww-daemon)."
+      "nix_attr": "awww",
+      "reason": "Wallpaper daemon (swww, renamed to awww on Nix). Provides awww/swww + *-daemon; started by execs.conf and wallpaper_manager.py."
     },
     {
       "name": "hyprpaper",

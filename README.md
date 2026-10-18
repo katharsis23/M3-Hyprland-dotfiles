@@ -7,66 +7,41 @@ Starter scaffold for a Material 3-inspired Quickshell + Hyprland desktop on Linu
 - `dependencies.json`: declarative APT and Nix dependency manifest.
 - `scripts/install.sh`: installer with dry-run, optional package handling, backups, and opt-out flags.
 - `scripts/doctor.sh`: basic dependency/session diagnostics.
-- `shell/shell.qml`: intentionally minimal Quickshell panel to validate startup.
-- `config/hypr/material-hyprland.conf`: a fragment sourced by your existing Hyprland config.
+- `scripts/apply-theme.sh`: regenerate the terminal palette from a wallpaper with matugen.
+- `theme/`: matugen config (`theme/matugen/config.toml`) and templates (`theme/templates/`).
+- `kitty/kitty.conf`: kitty config with a Nerd Font and a matugen include.
+- `fish/config.fish`: fish config that sources the generated colours.
+- `starship/starship.toml`: prompt config (a generated copy overrides it at runtime).
+- `shell/shell.qml`: Quickshell panel.
 - `config/defaults/apps.json`: default application fallback preferences.
 
-## Prerequisites
+## Shell features (Quickshell)
 
-- Linux Mint (tested design target: Mint 22.x), Bash, Python 3, sudo.
-- Nix installed and working for Nix-managed packages.
-- Existing Cinnamon session retained as a recovery path.
+- **In-shell launcher** (`shell/qt/windows/Launcher.qml`) on `SUPER+SPACE`; fuzzel
+  stays available as a fallback.
+- **Wallpaper picker** (`shell/qt/windows/WallpaperPicker.qml`) on
+  `SUPER+CTRL+T` — a thumbnail grid backed by `core/WallpaperService.qml` and
+  `shell/qt/scripts/wallpaper-scan.sh`. Settings → Appearance → **Blur
+  wallpaper** softly blurs the background (via ImageMagick) while the palette
+  is still sampled from the sharp image; the choice persists in
+  `~/.cache/material-hyprland/wallpaper-blur`.
+- **AI assistant drawer** (`shell/qt/windows/AiSidebar.qml`) on `SUPER+ALT+L`.
+- **System sidebar** on `SUPER+D`, **quick settings** on `SUPER+N`,
+  **calendar** on `SUPER+COMMA`, **shortcuts** on `SUPER+SLASH`,
+  **settings** on `SUPER+S`.
 
-## Install
+## Dynamic theme (all apps)
 
-First inspect planned actions:
+The whole desktop is recoloured from the active wallpaper with
+[matugen](https://github.com/InioX/matugen) (Material 3). Flipping the
+dark/light switch in Settings (or Quick Settings) regenerates every consumer —
+kitty, fish, starship **and** GTK apps (Nemo, dialogs) — and flips the GTK
+`color-scheme`, so terminal and file manager match the shell:
 
-```bash
-./scripts/install.sh --dry-run
-```
+- `kitty/kitty.conf` includes the generated `~/.local/state/theme/generated/kitty.conf`.
+- `fish/config.fish` sources `~/.local/state/theme/generated/fish-colors.fish`.
+- `theme/templates/gtk-3.0.css` / `gtk-4.0.css` write `~/.config/gtk-3.0/gtk.css`
+  and `~/.config/gtk-4.0/gtk.css`.
+- The chosen mode is persisted in `~/.local/state/theme/mode` and reused when a
+  new wallpaper is applied (`hypr/scripts/wallpaper_manager.py`).
 
-Then install:
-
-```bash
-./scripts/install.sh
-```
-
-To skip one package manager:
-
-```bash
-./scripts/install.sh --skip-apt
-./scripts/install.sh --skip-nix
-```
-
-Run diagnostics:
-
-```bash
-./scripts/doctor.sh
-```
-
-## Important notes
-
-- The manifest is JSON so the installer can parse it with Python's standard library; no `jq` dependency is needed to parse the manifest.
-- Nix package availability can vary by nixpkgs revision. The installer reports failed Nix installs and continues.
-- APT required packages are installed as a group. If a required package is unavailable, APT may stop that group; check the output and adjust `dependencies.json`.
-- Optional APT/Nix packages are attempted individually.
-- The installer backs up existing `~/.config/hypr/hyprland.conf` before appending the source line, and backs up an existing managed fragment before replacing it.
-- It does not edit SDDM, create a Wayland session file, or remove Cinnamon. Session registration should be a separate, verified step after the Hyprland executable and shell work.
-- The starter QML is a smoke-test panel, not the finished full Material 3 shell. Add features as modules after confirming `qs -c material-hyprland` works.
-- Quickshell package builds should bring their compatible Qt runtime. Avoid installing arbitrary Qt runtime libraries from a different package source.
-
-## Package manager policy (manifest schema v2)
-
-`dependencies.json` assigns each package one preferred manager (`apt` or `nix`).
-The installer does not intentionally install the same dependency through both managers.
-Fallback is opt-in:
-
-```bash
-./scripts/install.sh --dry-run
-./scripts/install.sh
-./scripts/install.sh --allow-fallback
-```
-
-The fallback flag tries the alternate manager only when the preferred install fails and
-the manifest defines a corresponding package name/attribute. This can still result in a
-package being installed from the fallback source, so review the output before using it.
