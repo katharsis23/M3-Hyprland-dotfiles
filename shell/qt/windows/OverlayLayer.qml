@@ -82,7 +82,10 @@ PanelWindow {
             readonly property int topInset: ov.pos === "top" ? ov.edge : ov.side
             readonly property int bottomInset: ov.pos === "bottom" ? ov.edge : ov.side
             open: ConfigProvider.leftSidebarOpen && ov.mine
-            width: Math.min(M3Tokens.dp(392), ov.maxW)
+            // The chat needs more room than the telemetry drawer: take up to
+            // ~34% of the screen (capped at 460) on large displays, but always
+            // shrink to fit narrow ones. Content inside further clamps to this.
+            width: Math.min(M3Tokens.dp(460), Math.max(M3Tokens.dp(300), ov.width * 0.34), ov.maxW)
             height: Math.max(M3Tokens.dp(200), ov.height - topInset - bottomInset)
             x: (ov.pos === "left" ? ov.edge : ov.side)
             y: topInset

@@ -24,12 +24,20 @@ M3Panel {
     // Pages that need a live backend; settings stays reachable for diagnostics.
     readonly property bool gated: !AiBridge.ready && page !== "settings"
 
+    // Adaptivity: inline the header actions only when there is room for all of
+    // them plus a readable title; otherwise collapse them into an overflow menu.
+    // Threshold is in dp so it tracks the UI scale; the title keeps its weight
+    // (Layout.fillWidth) and never pushes Close off-screen.
+    readonly property bool wideHeader: width >= M3Tokens.dp(340)
+    property bool overflowOpen: false
+
     function back() {
         if (page === "editor") page = "characters"
         else page = "chat"
     }
     // Always start on the chat when the drawer reopens.
-    onOpenChanged: if (!open) page = "chat"
+    onOpenChanged: if (!open) { page = "chat"; overflowOpen = false }
+    onPageChanged: overflowOpen = false
 
     ColumnLayout {
         anchors { fill: parent; margins: M3Tokens.dp(14) }
@@ -53,24 +61,70 @@ M3Panel {
                 Layout.fillWidth: true; Layout.minimumWidth: 0
                 text: panel.titles[panel.page]; type: "headline"
                 font.pixelSize: Typography.titleLarge
+                elide: Text.ElideRight
             }
+            // Wide drawer: primary nav actions inline. Narrow: fold them into a
+            // single overflow menu so the header never clips the close button.
             M3IconButton {
-                visible: panel.page === "chat"
+                visible: panel.page === "chat" && panel.wideHeader
                 icon: "history"; tooltip: "History"
                 onClicked: panel.page = "history"
             }
             M3IconButton {
-                visible: panel.page === "chat"
+                visible: panel.page === "chat" && panel.wideHeader
                 icon: "add_comment"; tooltip: "New chat"
                 enabled: AiBridge.ready
                 onClicked: chat.newChat()
             }
             M3IconButton {
-                visible: panel.page === "chat"
+                visible: panel.page === "chat" && panel.wideHeader
                 icon: "settings"; tooltip: "Settings"
                 onClicked: panel.page = "settings"
             }
+            M3IconButton {
+                visible: panel.page === "chat" && !panel.wideHeader
+                icon: "more_vert"; tooltip: "More"
+                toggled: panel.overflowOpen
+                onClicked: panel.overflowOpen = !panel.overflowOpen
+            }
             M3IconButton { icon: "close"; tooltip: "Close"; onClicked: ConfigProvider.closeAll() }
+        }
+
+        // Overflow menu for the actions hidden on narrow widths. Sits directly
+        // under the "more" button, anchored to the panel's top-right corner.
+        M3Card {
+            id: overflow
+            visible: panel.overflowOpen && !panel.wideHeader && panel.page === "chat"
+            Layout.alignment: Qt.AlignRight
+            Layout.preferredWidth: Math.min(M3Tokens.dp(190), panel.width - M3Tokens.dp(28))
+            padding: M3Tokens.dp(6)
+            ColumnLayout {
+                spacing: 0
+                Repeater {
+                    model: [
+                        { text: "History",   icon: "history",    act: () => panel.page = "history",  on: true },
+                        { text: "New chat",  icon: "add_comment", act: () => chat.newChat(),          on: AiBridge.ready },
+                        { text: "Settings",  icon: "settings",   act: () => panel.page = "settings", on: true } ]
+                    delegate: Rectangle {
+                        id: mi
+                        required property var modelData
+                        readonly property bool hot: hh.hovered && modelData.on
+                        Layout.fillWidth: true
+                        implicitHeight: M3Tokens.dp(40)
+                        radius: M3Tokens.cornerRadiusSm
+                        color: hot ? M3Theme.surfaceContainerHighest : "transparent"
+                        opacity: modelData.on ? 1 : 0.5
+                        RowLayout {
+                            anchors { fill: parent; leftMargin: M3Tokens.dp(12); rightMargin: M3Tokens.dp(12) }
+                            spacing: M3Tokens.dp(10)
+                            M3Icon { name: mi.modelData.icon; size: M3Tokens.dp(18); color: M3Theme.fgMuted }
+                            M3Text { Layout.fillWidth: true; text: mi.modelData.text; type: "label"; elide: Text.ElideRight }
+                        }
+                        HoverHandler { id: hh; cursorShape: Qt.PointingHandCursor }
+                        TapHandler { onTapped: if (mi.modelData.on) { mi.modelData.act(); panel.overflowOpen = false } }
+                    }
+                }
+            }
         }
 
         // ---- Views ---------------------------------------------------------------

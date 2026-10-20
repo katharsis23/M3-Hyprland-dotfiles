@@ -9,6 +9,15 @@ Rectangle {
     property real lift: M3Tokens.dp(8)          // slide distance while fading in
     Behavior on reveal { NumberAnimation { duration: M3Tokens.durationMedium; easing.type: M3Tokens.easing } }
 
+    // Width a resizable panel should take for a preferred size, clamped to the
+    // available width (the panel is sized to the screen by OverlayLayer) and
+    // never below `minW`. Keeps intrinsic content from spilling off-screen.
+    function fittedWidth(preferred, minW, margin) {
+        margin = margin === undefined ? 0 : margin
+        return Math.max(minW === undefined ? 0 : minW,
+                        Math.min(preferred, width - 2 * margin))
+    }
+
     visible: reveal > 0.001
     opacity: reveal
     scale: 0.97 + 0.03 * reveal

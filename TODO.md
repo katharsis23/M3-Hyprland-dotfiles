@@ -20,9 +20,10 @@ Statuses:
 10. Add shortcuts on AI sidebar on SUPER+ALT+L <Completed>
 11. Fix Adaptivity on TopBar <Completed>
 12. Enchant Hyprland config and window behaviour
-13. Fix the Dynamic Color Theme for Fish and Kitty
+13. Fix the Dynamic Color Theme for Fn ish and Kitty
 14. Investigate the Hyprlock broken behaviour
 15. Fix the Adaptivity of AI-sidebar and decrease the latency
+16. Manually add an option to clone AI-chat from repository in installation script
 
 ### Notes on 4-6
 - 4: `widgets/WorkspaceBar.qml` renders terminals with the Nerd Font glyph

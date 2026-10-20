@@ -12,8 +12,14 @@ SKIP_CONFIG=0
 ASSUME_YES=0
 SOURCE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/material-hyprland/src"
 
-# TODO: !! Add git clone AI-girlfriend from https://github.com/katharsis23/AI_girlfriend_chat.git
-
+# --- AI companion backend checkout cloning --------------------------------
+# The AI sidebar needs the AI_girlfriend_chat Python checkout. If it is not
+# present at AI_GIRLFRIEND_HOME, the installer can clone it from the project's
+# upstream repository. CLONE_AI is tri-state (auto|yes|no): "auto" asks the
+# user interactively (only on a TTY), "yes" clones without asking, "no" skips.
+CLONE_AI="auto"
+AI_REPO_URL="${AI_GIRLFRIEND_REPO:-https://github.com/katharsis23/AI_girlfriend_chat.git}"
+AI_REPO_REF="${AI_GIRLFRIEND_REF:-}"
 
 usage() {
   cat <<'EOF'
@@ -22,6 +28,10 @@ Usage: scripts/install.sh [options]
   --dry-run          Print planned actions without changing the system
   --skip-packages    Skip dependency installation; apply config only
   --skip-config      Install packages only; do not apply config
+  --clone-ai         Clone the AI companion backend if it is missing (no prompt)
+  --no-clone-ai      Never clone the AI backend; only use an existing checkout
+  --ai-repo URL      Git URL to clone the AI backend from
+                     (default: https://github.com/katharsis23/AI_girlfriend_chat.git)
   -y, --yes          Do not ask for confirmation
   -h, --help         Show help
 
@@ -38,7 +48,9 @@ any time with scripts/apply-theme.sh [image] (or `theme` inside fish).
 Besides the desktop stack, this installer provisions the AI companion
 backend used by the AI sidebar: it installs Poetry and runs `poetry install`
 for the AI_girlfriend_chat checkout (set AI_GIRLFRIEND_HOME to override its
-location). The resolved path is recorded in
+location). If the checkout is missing it can clone it from upstream — pass
+--clone-ai to accept, --no-clone-ai to skip, or --ai-repo URL to choose a
+different source. The resolved path is recorded in
 ~/.config/material-hyprland/ai-backend.env and sourced from your shell profile.
 
 This installer does not edit SDDM or remove Cinnamon. Keep Cinnamon as a
@@ -52,6 +64,11 @@ while (($#)); do
     --dry-run) DRY_RUN=1 ;;
     --skip-packages) SKIP_PACKAGES=1 ;;
     --skip-config) SKIP_CONFIG=1 ;;
+    --clone-ai) CLONE_AI=yes ;;
+    --no-clone-ai) CLONE_AI=no ;;
+    --ai-repo)
+      [[ -n "${2:-}" ]] || { echo "--ai-repo needs a URL" >&2; exit 2; }
+      AI_REPO_URL="$2"; CLONE_AI=auto; shift ;;
     -y|--yes) ASSUME_YES=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
@@ -317,12 +334,66 @@ install_poetry() {
   return 1
 }
 
+# Clone the AI companion backend into AI_BACKEND_DIR when it is missing.
+# Returns 0 if a checkout is available (already present or freshly cloned),
+# non-zero if the user declined / cloning failed / git is unavailable.
+clone_ai_backend() {
+  [[ -d "$AI_BACKEND_DIR" ]] && return 0
+
+  case "$CLONE_AI" in
+    no)
+      log "Skipping AI backend clone (--no-clone-ai)."
+      return 1 ;;
+    auto)
+      # Interactive prompt only when we can actually read an answer.
+      if [[ -t 0 ]] && ! (( ASSUME_YES )); then
+        if ! confirm "AI backend not found. Clone it from $AI_REPO_URL ?"; then
+          warn "AI backend clone declined."
+          return 1
+        fi
+      elif (( ASSUME_YES )); then
+        # -y implies consent to the automatic step.
+        log "AI backend missing; cloning (implied by --yes)."
+      else
+        warn "AI backend missing and no TTY to ask; use --clone-ai to clone automatically."
+        return 1
+      fi ;;
+    yes) ;;                          # clone without prompting
+  esac
+
+  if (( DRY_RUN )); then
+    log "Would clone $AI_REPO_URL${AI_REPO_REF:+ ($AI_REPO_REF)} into $AI_BACKEND_DIR"
+    return 0
+  fi
+
+  have git || { warn "git is required to clone the AI backend."; return 1; }
+
+  local parent; parent="$(dirname -- "$AI_BACKEND_DIR")"
+  mkdir -p "$parent"
+  log "Cloning AI backend: $AI_REPO_URL -> $AI_BACKEND_DIR"
+  local clone_args=(clone --depth 1)
+  [[ -n "$AI_REPO_REF" ]] && clone_args+=(--branch "$AI_REPO_REF")
+  if git clone "${clone_args[@]}" "$AI_REPO_URL" "$AI_BACKEND_DIR"; then
+    ok "Cloned AI backend into $AI_BACKEND_DIR"
+    return 0
+  fi
+
+  # A partial directory can be left behind by a failed clone; clean it up so a
+  # retry does not trip over "destination already exists".
+  rm -rf "$AI_BACKEND_DIR" 2>/dev/null || true
+  warn "Failed to clone $AI_REPO_URL; check the URL/network or set --ai-repo."
+  return 1
+}
+
 install_ai_backend() {
   local pb
   if [[ ! -d "$AI_BACKEND_DIR" ]]; then
-    warn "AI backend checkout not found at: $AI_BACKEND_DIR"
-    warn "Set AI_GIRLFRIEND_HOME to your AI_girlfriend_chat checkout and re-run, or clone it there."
-    return 1
+    # Checkout missing: offer to clone it (auto = ask on a TTY, safe default).
+    if ! clone_ai_backend; then
+      warn "AI backend checkout not found at: $AI_BACKEND_DIR"
+      warn "Set AI_GIRLFRIEND_HOME to your AI_girlfriend_chat checkout and re-run, clone it there, or pass --clone-ai."
+      return 1
+    fi
   fi
   install_poetry || return 1
   pb="$(poetry_bin || true)"
