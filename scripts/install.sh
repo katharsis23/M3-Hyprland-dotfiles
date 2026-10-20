@@ -12,6 +12,9 @@ SKIP_CONFIG=0
 ASSUME_YES=0
 SOURCE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/material-hyprland/src"
 
+# TODO: !! Add git clone AI-girlfriend from https://github.com/katharsis23/AI_girlfriend_chat.git
+
+
 usage() {
   cat <<'EOF'
 Usage: scripts/install.sh [options]
@@ -31,6 +34,12 @@ Config step installs the Hyprland modules plus the terminal theme stack:
 matugen (config + templates), kitty, fish and starship, then generates an
 initial Material 3 palette from the current wallpaper. Re-run the palette at
 any time with scripts/apply-theme.sh [image] (or `theme` inside fish).
+
+Besides the desktop stack, this installer provisions the AI companion
+backend used by the AI sidebar: it installs Poetry and runs `poetry install`
+for the AI_girlfriend_chat checkout (set AI_GIRLFRIEND_HOME to override its
+location). The resolved path is recorded in
+~/.config/material-hyprland/ai-backend.env and sourced from your shell profile.
 
 This installer does not edit SDDM or remove Cinnamon. Keep Cinnamon as a
 recovery session.
@@ -269,6 +278,132 @@ build_from_source() {
   esac
 }
 
+# --- AI companion backend (AI_girlfriend_chat) ------------------------------
+# The Quickshell AI sidebar talks to a local Python backend over JSON/stdio
+# (see shell/qt/core/AiBridge.qml and shell/Ai_sidebar_specification.md). The
+# backend needs Python 3.11+, Poetry, and its Poetry env installed. The path is
+# recorded in the shell so AiBridge can spawn `python -m ...ipc_server`.
+
+# Allow the user to point at an existing checkout; otherwise use the default.
+AI_BACKEND_DIR="${AI_GIRLFRIEND_HOME:-$HOME/Projects/AI-girlfriend/AI_girlfriend_chat}"
+
+poetry_bin() {
+  # Poetry installs to ~/.local/bin (or XDG_BIN_HOME); fall back to PATH.
+  local candidate="${XDG_BIN_HOME:-$HOME/.local/bin}/poetry"
+  if [[ -x "$candidate" ]]; then echo "$candidate"; return 0; fi
+  have poetry && { command -v poetry; return 0; }
+  return 1
+}
+
+install_poetry() {
+  if poetry_bin >/dev/null 2>&1 && [[ "$(poetry_bin)" != "poetry" || -n "$(command -v poetry 2>/dev/null)" ]]; then
+    ok "Poetry already installed: $(poetry_bin || true)"
+    return 0
+  fi
+  if (( DRY_RUN )); then
+    log "Would install Poetry via https://install.python-poetry.org"
+    return 0
+  fi
+  have curl || { warn "curl is required to install Poetry."; return 1; }
+  have python3 || { warn "python3 is required to install Poetry."; return 1; }
+  log "Installing Poetry (official installer)…"
+  if curl -sSL https://install.python-poetry.org | python3 - >/dev/null; then
+    local pb; pb="$(poetry_bin || true)"
+    ok "Installed Poetry: ${pb:-poetry}"
+    case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+    return 0
+  fi
+  warn "Poetry installer failed; install it manually: curl -sSL https://install.python-poetry.org | python3 -"
+  return 1
+}
+
+install_ai_backend() {
+  local pb
+  if [[ ! -d "$AI_BACKEND_DIR" ]]; then
+    warn "AI backend checkout not found at: $AI_BACKEND_DIR"
+    warn "Set AI_GIRLFRIEND_HOME to your AI_girlfriend_chat checkout and re-run, or clone it there."
+    return 1
+  fi
+  install_poetry || return 1
+  pb="$(poetry_bin || true)"
+  [[ -n "$pb" ]] || { warn "Poetry binary not found after install."; return 1; }
+
+  if (( DRY_RUN )); then
+    log "Would run: (cd $AI_BACKEND_DIR && $pb install)"
+    log "Would record AI_GIRLFRIEND_HOME=$AI_BACKEND_DIR in the shell profile."
+    return 0
+  fi
+
+  # Prefer an in-project .venv so AiBridge can find it at the default
+  # location (<backend>/.venv/bin/python) even without env vars. This is
+  # scoped to the backend dir via `poetry config --local`.
+  ( cd "$AI_BACKEND_DIR" && "$pb" config --local virtualenvs.in-project true ) || \
+    warn "Could not set virtualenvs.in-project for the backend (continuing)."
+
+  log "Installing AI backend dependencies in $AI_BACKEND_DIR …"
+  # `poetry install` creates the project venv and installs PySide6/pydantic etc.
+  if ( cd "$AI_BACKEND_DIR" && "$pb" install --no-interaction ); then
+    ok "AI backend dependencies installed."
+  else
+    warn "poetry install failed; the AI sidebar will not start until this succeeds."
+    return 1
+  fi
+
+  # Resolve the interpreter Poetry created so we can bake it into the profile.
+  local env_path py
+  env_path="$( cd "$AI_BACKEND_DIR" && "$pb" env info -p 2>/dev/null || true )"
+  py="$env_path/bin/python"
+  if [[ -x "$py" ]]; then
+    # If Poetry still used a cache venv (in-project not honoured), expose it at
+    # the backend's default .venv so AiBridge finds it without any env vars.
+    local in_project="$AI_BACKEND_DIR/.venv"
+    if [[ "$env_path" != "$in_project" && ! -e "$in_project" ]]; then
+      ln -s "$env_path" "$in_project" \
+        && ok "Linked $in_project -> $env_path (for AiBridge's default path)"
+    fi
+    record_ai_env "$AI_BACKEND_DIR" "$py"
+  else
+    warn "Could not resolve the backend virtualenv interpreter."
+    record_ai_env "$AI_BACKEND_DIR" ""
+  fi
+  return 0
+}
+
+# Persist the backend location so AiBridge (a separate process) can find it.
+# Written to a small env file sourced from the shell profiles.
+record_ai_env() {
+  local home_dir="$1" py="$2"
+  local env_file="$HOME/.config/material-hyprland/ai-backend.env"
+  mkdir -p "$(dirname -- "$env_file")"
+  {
+    echo "# Generated by install.sh — AI companion backend location."
+    echo "export AI_GIRLFRIEND_HOME=\"$home_dir\""
+    [[ -n "$py" ]] && echo "export AI_GIRLFRIEND_PYTHON=\"$py\""
+  } >"$env_file"
+  ok "Recorded AI backend location in $env_file"
+
+  # Source the env file from shell profiles (add Fish as a one-liner too).
+  local block='# AI companion backend (material-hyprland)\n[ -f "$HOME/.config/material-hyprland/ai-backend.env" ] && . "$HOME/.config/material-hyprland/ai-backend.env"'
+  local prof
+  for prof in "$HOME/.bashrc" "$HOME/.profile"; do
+    [[ -e "$prof" ]] || continue
+    if ! grep -q "ai-backend.env" "$prof"; then
+      printf '\n%b\n' "$block" >>"$prof"
+      ok "Added AI backend env sourcing to $prof"
+    fi
+  done
+  local fish_dir="$HOME/.config/fish"
+  if [[ -d "$fish_dir" ]]; then
+    local fish_block='if test -f "$HOME/.config/material-hyprland/ai-backend.env"\n    for line in (cat "$HOME/.config/material-hyprland/ai-backend.env")\n        set -gx (string replace -r "^export " "" $line | string split "=" -m 2)\n    end\nend'
+    if ! grep -q "ai-backend.env" "$fish_dir/config.fish" 2>/dev/null; then
+      printf '\n%b\n' "$fish_block" >>"$fish_dir/config.fish"
+      ok "Added AI backend env sourcing to $fish_dir/config.fish"
+    fi
+  fi
+}
+
+
+
 # Resolve one package in default (APT-first) mode.
 install_package_default() {
   local name="$1" apt_name="$2" blob="$3"
@@ -345,6 +480,7 @@ install_special_package() {
   case "$1" in
     nerd-fonts) install_nerd_font ;;
     starship)   install_starship ;;
+    poetry)     install_poetry ;;
     *)          return 127 ;;
   esac
 }
@@ -394,6 +530,11 @@ install_packages() {
     fi
   done < <(manifest_rows)
 
+  # AI companion backend (Poetry + Poetry env). Treated as optional so a
+  # missing backend checkout never fails the desktop install.
+  log "AI companion backend"
+  install_ai_backend || warn "AI backend install skipped/failed; the AI sidebar will show an error until fixed."
+
   if ((${#failed_required[@]})); then
     warn "These required dependencies could not be installed: ${failed_required[*]}"
     if (( VIA_NIX )); then
@@ -430,6 +571,25 @@ verify_install() {
 
   if ((${#missing[@]})); then
     warn "Missing executables on PATH: ${missing[*]}"
+  fi
+
+  # AI backend: verify the recorded interpreter can import the bridge.
+  local env_file="$HOME/.config/material-hyprland/ai-backend.env"
+  if [[ -f "$env_file" ]]; then
+    # shellcheck disable=SC1090
+    . "$env_file"
+    if [[ -n "${AI_GIRLFRIEND_HOME:-}" && -n "${AI_GIRLFRIEND_PYTHON:-}" && -x "${AI_GIRLFRIEND_PYTHON}" ]]; then
+      if AI_GIRLFRIEND_HOME="${AI_GIRLFRIEND_HOME}" "${AI_GIRLFRIEND_PYTHON}" -c \
+           "import sys; sys.path.insert(0, '${AI_GIRLFRIEND_HOME}'); import src.ai_girlfriend.ui.ipc_server" 2>/dev/null; then
+        ok "AI backend bridge imports cleanly: ${AI_GIRLFRIEND_PYTHON}"
+      else
+        warn "AI backend bridge failed to import with ${AI_GIRLFRIEND_PYTHON}."
+      fi
+    else
+      warn "AI backend env is recorded but AI_GIRLFRIEND_PYTHON is not executable."
+    fi
+  else
+    warn "AI backend not configured (no $env_file); AI sidebar will be disabled."
   fi
 }
 
@@ -546,6 +706,8 @@ apply_config() {
     log "Would source the modular hyprland.conf from $HYPR_MAIN"
     log "Would remove any stale *.lua configs from $HYPR_DIR"
     log "Would install default app preferences into $CONFIG_HOME/material-hyprland"
+    log "Would install AI assistant launcher entry: ~/.local/share/applications/material-ai-assistant.desktop"
+    log "Would link ai_chat.sh into ~/.local/bin"
     apply_terminal_config
     return 0
   fi
@@ -620,6 +782,24 @@ apply_config() {
   if [[ ! -e "$CONFIG_HOME/material-hyprland/apps.json" ]]; then
     install -m 0644 "$ROOT_DIR/config/defaults/apps.json" \
       "$CONFIG_HOME/material-hyprland/apps.json"
+  fi
+
+  # Desktop entry so the assistant is launchable from the in-shell launcher and
+  # any other app menu. `Exec=ai_chat.sh` needs the script on PATH; the hypr
+  # scripts land in ~/.config/hypr/scripts, which the profile adds to PATH, but
+  # we also install a shim in ~/.local/bin to be safe.
+  local apps_dir="$HOME/.local/share/applications"
+  mkdir -p "$apps_dir"
+  if [[ -f "$ROOT_DIR/config/defaults/applications/material-ai-assistant.desktop" ]]; then
+    install -m 0644 "$ROOT_DIR/config/defaults/applications/material-ai-assistant.desktop" \
+      "$apps_dir/material-ai-assistant.desktop"
+    ok "Installed launcher entry: $apps_dir/material-ai-assistant.desktop"
+  fi
+  local bin_dir="$HOME/.local/bin"
+  mkdir -p "$bin_dir"
+  if [[ -f "$HYPR_DIR/scripts/ai_chat.sh" ]]; then
+    ln -sf "$HYPR_DIR/scripts/ai_chat.sh" "$bin_dir/ai_chat.sh"
+    ok "Linked ai_chat.sh into $bin_dir"
   fi
 
   if have hyprland; then

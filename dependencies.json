@@ -51,7 +51,10 @@
         "kind": "cargo",
         "repo": "https://github.com/InioX/matugen.git",
         "bin": "matugen",
-        "install_args": ["--root", "/usr/local"],
+        "install_args": [
+          "--root",
+          "/usr/local"
+        ],
         "apt_build_deps": [
           "cargo",
           "rustc"
@@ -300,7 +303,9 @@
         "kind": "go",
         "repo": "https://github.com/sentriz/cliphist.git",
         "bin": "cliphist",
-        "apt_build_deps": ["golang-go"]
+        "apt_build_deps": [
+          "golang-go"
+        ]
       },
       "nix_attr": "cliphist",
       "reason": "Optional clipboard history. Not in Debian repositories; built with Go when desired."
@@ -336,6 +341,27 @@
       "source": null,
       "nix_attr": "hyprpaper",
       "reason": "Optional alternative wallpaper backend."
+    },
+    {
+      "name": "python3-venv",
+      "apt_name": "python3-venv",
+      "nix_attr": "python3",
+      "required": true,
+      "note": "Virtualenv support required by Poetry for the AI companion backend."
+    },
+    {
+      "name": "python3-dev",
+      "apt_name": "python3-dev",
+      "nix_attr": "python3",
+      "required": false,
+      "note": "Python headers; needed to build some PySide6/pydantic extras."
+    },
+    {
+      "name": "poetry",
+      "apt_name": null,
+      "nix_attr": "poetry",
+      "required": false,
+      "note": "Installed by scripts/install.sh via the official installer when absent; manages the AI backend venv."
     }
   ],
   "notes": [
@@ -345,6 +371,7 @@
     "Hyprland is APT-only by design (source: null); use --via-nix if it is unavailable in your repositories.",
     "Nix attributes depend on the nixpkgs revision; --via-nix is fully self-contained and skips APT and source entirely.",
     "Some fonts (e.g. fonts-material-symbols) may be missing from older repositories; the installer warns and continues.",
-    "Packages with a null apt_name AND null source (e.g. starship, nerd-fonts) are handled by dedicated installer steps (upstream release download into ~/.local) in the default backend, and by their nix_attr with --via-nix."
+    "Packages with a null apt_name AND null source (e.g. starship, nerd-fonts) are handled by dedicated installer steps (upstream release download into ~/.local) in the default backend, and by their nix_attr with --via-nix.",
+    "The AI companion backend is provisioned by scripts/install.sh (`poetry install`); its path is recorded in ~/.config/material-hyprland/ai-backend.env."
   ]
 }

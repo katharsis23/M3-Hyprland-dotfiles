@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AI Assistant
+GenericName=Local AI companion
+Comment=Open the Material 3 AI chat sidebar
+Exec=ai_chat.sh
+Icon=user-available
+Terminal=false
+Categories=Utility;Chat;
+Keywords=ai;chat;assistant;companion;llm;
+StartupNotify=false

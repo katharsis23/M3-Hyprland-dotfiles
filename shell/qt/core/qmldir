@@ -4,3 +4,4 @@ singleton SystemServices 1.0 SystemServices.qml
 singleton LauncherService 1.0 LauncherService.qml
 singleton WallpaperService 1.0 WallpaperService.qml
 
+singleton AiBridge 1.0 AiBridge.qml

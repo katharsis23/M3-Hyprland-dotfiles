@@ -19,7 +19,9 @@ if grep -q 'qs -c material-hyprland/qt' "$HOME/.config/hypr/hyprland/execs.conf"
 else
   echo "  quickshell autostart: MISSING (re-run scripts/install.sh)"
 fi
-if pgrep -x quickshell >/dev/null 2>&1; then
+# The Nix package runs ``quickshell-wrapped-<ver>`` (``qs`` is a shim), so an
+# exact ``pgrep -x quickshell`` never matches; use ``-f`` on the command line.
+if pgrep -f '[q]uickshell' >/dev/null 2>&1; then
   echo "  running now        : yes"
 else
   echo "  running now        : no"

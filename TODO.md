@@ -18,10 +18,11 @@ Statuses:
 8. Light Theme should be applied to All applications(File Manager, Terminal etc) <In Review>
 9. Set App Launcher on SUPER shortcut <Completed>
 10. Add shortcuts on AI sidebar on SUPER+ALT+L <Completed>
-11. Fix Adaptivity on TopBar <ToDo>
+11. Fix Adaptivity on TopBar <Completed>
 12. Enchant Hyprland config and window behaviour
 13. Fix the Dynamic Color Theme for Fish and Kitty
-14. Add a shortcut to move window across the workspaces
+14. Investigate the Hyprlock broken behaviour
+15. Fix the Adaptivity of AI-sidebar and decrease the latency
 
 ### Notes on 4-6
 - 4: `widgets/WorkspaceBar.qml` renders terminals with the Nerd Font glyph

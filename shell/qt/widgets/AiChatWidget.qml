@@ -1,82 +1,106 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Io
 import "../components"
 import "../theme"
 import "../core"
 
-// Local LLM chat over Ollama's streaming /api/chat (NDJSON), with history.
+// AI companion chat, driven by the Python backend through AiBridge. Header
+// (portrait / name / expression), transcript, typing indicator, composer and a
+// transient error banner. Navigation (history, new chat, settings) lives in the
+// AiSidebar header; this widget exposes `newChat()` for it.
 M3Card {
     id: root
-    property string model: ConfigProvider.aiModel
-    property string endpoint: "http://localhost:11434/api/chat"
-    property bool busy: false
-    property int _pending: -1
     implicitHeight: M3Tokens.dp(400)
 
-    ListModel { id: messages
-        ListElement { role: "assistant"; body: "Hi! I run locally through Ollama. Ask me anything." } }
+    signal characterRequested()          // header tapped -> host opens the picker
 
-    Process {
-        id: ollama
-        stdout: SplitParser {
-            onRead: (line) => {
-                if (line.trim() === "" || root._pending < 0) return
-                try {
-                    const o = JSON.parse(line)
-                    if (o.error) { messages.setProperty(root._pending, "body", "Error: " + o.error); return }
-                    if (o.message && o.message.content !== undefined)
-                        messages.setProperty(root._pending, "body", messages.get(root._pending).body + o.message.content)
-                    list.positionViewAtEnd()
-                } catch (e) { /* partial line */ }
-            }
-        }
-        onExited: {
-            root.busy = false
-            if (root._pending >= 0 && messages.get(root._pending).body === "")
-                messages.setProperty(root._pending, "body", "No response. Is Ollama running (and is the model \"" + root.model + "\" pulled)?")
-            root._pending = -1
-        }
+    // Local message model, mirrored from AiBridge.replyReceived / chatLoaded.
+    ListModel { id: messages }
+
+    function seedGreeting() {
+        if (messages.count === 0 && AiBridge.greeting !== "")
+            messages.append({ role: "assistant", body: AiBridge.greeting })
     }
+    // Fresh conversation (backend reset + greeting bubble).
+    function newChat() {
+        messages.clear()
+        AiBridge.resetChat()
+        seedGreeting()
+    }
+    function _showError(msg) { errorText = msg; errorTimer.restart() }
+    property string errorText: ""
+
+    Connections {
+        target: AiBridge
+        function onReplyReceived(payload) {
+            messages.append({ role: "assistant", body: payload.text || "…" })
+        }
+        function onChatLoaded(transcript) {
+            messages.clear()
+            for (const m of transcript) messages.append({ role: m.role, body: m.text })
+        }
+        function onErrorRaised(message) { root._showError(message) }
+        // Character switched / edited: the backend clears the transcript.
+        function onCharacterIdChanged() { messages.clear(); root.seedGreeting() }
+        function onCharacterNameChanged() { messages.clear(); root.seedGreeting() }
+        function onGreetingChanged() { messages.clear(); root.seedGreeting() }
+        function onBusyChanged() { Qt.callLater(list.positionViewAtEnd) }
+    }
+    Component.onCompleted: seedGreeting()
+
+    Timer { id: errorTimer; interval: 6000; onTriggered: root.errorText = "" }
 
     function send(text) {
         text = text.trim()
-        if (text === "" || busy) return
-        const history = []
-        for (let i = 0; i < messages.count; i++) {
-            const m = messages.get(i)
-            if (m.body !== "") history.push({ role: m.role, content: m.body })
-        }
-        history.push({ role: "user", content: text })
+        if (text === "" || AiBridge.busy || !AiBridge.ready) return
         messages.append({ role: "user", body: text })
-        messages.append({ role: "assistant", body: "" })
-        _pending = messages.count - 1
-        busy = true
-        ollama.exec(["curl", "-sN", "-X", "POST", endpoint, "-H", "Content-Type: application/json",
-                     "-d", JSON.stringify({ model: model, messages: history, stream: true })])
+        AiBridge.send(text)
     }
-    function stop() { if (busy) ollama.running = false }
-    function clear() { stop(); messages.clear(); messages.append({ role: "assistant", body: "Chat cleared." }) }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: M3Tokens.dp(8)
 
-        RowLayout {
+        // ---- Header: portrait + name + expression ---------------------------
+        Item {
             Layout.fillWidth: true
-            M3Icon { name: "smart_toy"; size: M3Tokens.dp(20); color: M3Theme.primaryText }
-            M3Text { Layout.fillWidth: true; text: "Assistant · " + root.model; type: "title" }
-            M3IconButton { icon: root.busy ? "stop_circle" : "delete_sweep"; size: M3Tokens.dp(32)
-                           onClicked: root.busy ? root.stop() : root.clear() }
+            implicitHeight: headerRow.implicitHeight
+            RowLayout {
+                id: headerRow
+                anchors.fill: parent
+                spacing: M3Tokens.dp(10)
+                Portrait {
+                    size: M3Tokens.dp(40)
+                    source: AiBridge.expressionUrl
+                    emoji: AiBridge.portraitEmoji
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true; Layout.minimumWidth: 0
+                    spacing: 0
+                    M3Text {
+                        Layout.fillWidth: true
+                        text: AiBridge.characterName !== "" ? AiBridge.characterName : "Assistant"
+                        type: "title"
+                    }
+                    M3Text {
+                        Layout.fillWidth: true
+                        text: AiBridge.ready ? (AiBridge.expression || "neutral") : "connecting…"
+                        type: "caption"; muted: true
+                    }
+                }
+            }
+            HoverHandler { cursorShape: Qt.PointingHandCursor }
+            TapHandler { onTapped: root.characterRequested() }
         }
 
+        // ---- Transcript ------------------------------------------------------
         ListView {
             id: list
             Layout.fillWidth: true; Layout.fillHeight: true
             clip: true; spacing: M3Tokens.dp(6)
             model: messages
-            onCountChanged: positionViewAtEnd()
+            boundsBehavior: Flickable.StopAtBounds
+            onCountChanged: Qt.callLater(positionViewAtEnd)
             delegate: Item {
                 id: rowItem
                 required property string role
@@ -100,20 +124,52 @@ M3Card {
                     }
                 }
             }
+            footer: Item {
+                width: list.width
+                height: AiBridge.busy ? M3Tokens.dp(42) : 0
+                visible: AiBridge.busy
+                TypingIndicator { y: M3Tokens.dp(6); visible: AiBridge.busy }
+            }
         }
 
+        // ---- Transient error banner -----------------------------------------
+        Rectangle {
+            Layout.fillWidth: true
+            visible: root.errorText !== ""
+            implicitHeight: errLabel.implicitHeight + M3Tokens.dp(16)
+            radius: M3Tokens.cornerRadiusMd
+            color: M3Theme.errorContainer
+            RowLayout {
+                anchors { fill: parent; leftMargin: M3Tokens.dp(12); rightMargin: M3Tokens.dp(4) }
+                M3Icon { name: "error"; size: M3Tokens.dp(18); color: M3Theme.errorContainerFg }
+                M3Text {
+                    id: errLabel
+                    Layout.fillWidth: true; Layout.minimumWidth: 0
+                    text: root.errorText; color: M3Theme.errorContainerFg
+                    wrapMode: Text.Wrap; elide: Text.ElideNone; type: "caption"
+                }
+                M3IconButton { icon: "close"; size: M3Tokens.dp(28); onClicked: root.errorText = "" }
+            }
+        }
+
+        // ---- Composer --------------------------------------------------------
         RowLayout {
             Layout.fillWidth: true
             spacing: M3Tokens.dp(6)
             M3TextField {
                 id: input
                 Layout.fillWidth: true; Layout.minimumWidth: 0
-                placeholderText: root.busy ? "Thinking…" : "Message…"
-                enabled: !root.busy
+                placeholderText: !AiBridge.ready ? "Backend starting…"
+                               : AiBridge.busy ? "Thinking…"
+                               : "Message…"
+                enabled: AiBridge.ready && !AiBridge.busy
                 onAccepted: { root.send(text); text = "" }
             }
-            M3IconButton { icon: "send"; filled: true; size: M3Tokens.dp(44); enabled: !root.busy
-                           onClicked: { root.send(input.text); input.text = "" } }
+            M3IconButton {
+                icon: "send"; filled: true; size: M3Tokens.dp(44)
+                enabled: AiBridge.ready && !AiBridge.busy
+                onClicked: { root.send(input.text); input.text = "" }
+            }
         }
     }
 }
