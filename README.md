@@ -1,6 +1,7 @@
 # Material Hyprland Starter
 
 Starter scaffold for a Material 3-inspired Quickshell + Hyprland desktop on Linux Mint with Nix.
+Inspired by [End4 config](https://github.com/end-4/dots-hyprland.git)
 
 ## Contents
 
