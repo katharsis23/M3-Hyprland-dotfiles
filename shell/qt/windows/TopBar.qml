@@ -153,6 +153,9 @@ PanelWindow {
                 M3IconButton { icon: "dock_to_left"; size: bar.btn; tooltip: "System sidebar (Super+D)"
                                toggled: ConfigProvider.sidebarOpen
                                onClicked: ConfigProvider.toggleSidebar(bar.screenName) }
+                M3IconButton { icon: "power_settings_new"; size: bar.btn; tooltip: "Power menu"
+                               toggled: ConfigProvider.shutdownOpen
+                               onClicked: ConfigProvider.toggleShutdown(bar.screenName) }
             }
         }
     }

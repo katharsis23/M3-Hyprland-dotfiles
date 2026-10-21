@@ -27,6 +27,7 @@ ShellRoot {
         function openLauncher(): void { LauncherService.toggle() }
         function toggleQuickSettings(): void { ConfigProvider.toggleQuickSettings("") }
         function toggleCalendar(): void { ConfigProvider.toggleCalendar("") }
+        function toggleShutdown(): void { ConfigProvider.toggleShutdown("") }
         function toggleSettings(): void { ConfigProvider.toggleSettings("") }
         function toggleShortcuts(): void { ConfigProvider.toggleShortcuts("") }
         function toggleWallpaper(): void { ConfigProvider.toggleWallpaper("") }

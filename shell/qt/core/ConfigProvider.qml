@@ -30,6 +30,7 @@ Singleton {
     // ---- Transient UI state ----------------------------------------------
     property bool quickSettingsOpen: false
     property bool calendarOpen: false
+    property bool shutdownOpen: false
     property bool sidebarOpen: false
     // Separate LEFT sidebar that hosts the AI assistant.
     property bool leftSidebarOpen: false
@@ -42,7 +43,7 @@ Singleton {
     property string overlayScreen: ""
 
     readonly property bool dialogOpen: settingsOpen || shortcutsOpen || wallpaperOpen
-    readonly property bool anyOpen: quickSettingsOpen || calendarOpen || sidebarOpen
+    readonly property bool anyOpen: quickSettingsOpen || calendarOpen || shutdownOpen || sidebarOpen
                                     || leftSidebarOpen || dialogOpen
 
     // ---- Desktop clock placement (draggable + resizable) ------------------
@@ -56,7 +57,7 @@ Singleton {
         return Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
     }
     function closeAll() {
-        quickSettingsOpen = false; calendarOpen = false; sidebarOpen = false
+        quickSettingsOpen = false; calendarOpen = false; shutdownOpen = false; sidebarOpen = false
         leftSidebarOpen = false; settingsOpen = false; shortcutsOpen = false
         wallpaperOpen = false
     }
@@ -70,6 +71,7 @@ Singleton {
     }
     function toggleQuickSettings(s) { _toggle("quickSettingsOpen", s) }
     function toggleCalendar(s)      { _toggle("calendarOpen", s) }
+    function toggleShutdown(s)      { _toggle("shutdownOpen", s) }
     function toggleSidebar(s)       { _toggle("sidebarOpen", s) }
     function toggleLeftSidebar(s)   { _toggle("leftSidebarOpen", s) }
     function toggleSettings(s)      { _toggle("settingsOpen", s) }

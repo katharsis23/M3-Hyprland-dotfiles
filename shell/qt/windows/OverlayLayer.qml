@@ -69,6 +69,12 @@ PanelWindow {
             height: Math.min(implicitHeight, ov.maxH)
             x: ov.popupX(width); y: ov.popupY(height)
         }
+        ShutdownPanel {
+            open: ConfigProvider.shutdownOpen && ov.mine
+            width: Math.min(M3Tokens.dp(300), ov.maxW)
+            height: Math.min(implicitHeight, ov.maxH)
+            x: ov.popupX(width); y: ov.popupY(height)
+        }
         AuxiliarySidebar {
             readonly property int topInset: ov.pos === "top" ? ov.edge : ov.side
             readonly property int bottomInset: ov.pos === "bottom" ? ov.edge : ov.side
